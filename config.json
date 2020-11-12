@@ -1,0 +1,6 @@
+{
+    "prefix": "j!",
+    "token": "",
+    "coinToss": ["It was Heads", "It was Tails", "... It landed on its side"],
+    "eightball": ["Try again", "Yes", "No", "Probably", "Unlikely", "Impossible"]
+}
