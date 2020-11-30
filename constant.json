@@ -1,0 +1,12 @@
+{
+    "YOUTUBE_API": "TOKEN_GOES_HERE",
+    "OWNERID": "232653096063336448",
+    "STATUSID": "777323122000527370",
+    "COMMANDID": "774858295541891082",
+    "COMMANDALTID": "775803500726190170",
+    "QUOTEID": "778661452466225172",
+    "KARUTAID": "774858295541891082",
+    "VOICECHANNELID": "774886972278702093",
+    "coinToss": ["It was Heads", "It was Tails", "... It landed on its side"],
+    "eightball": ["Try again", "Yes", "No", "Probably", "Unlikely", "Impossible", "Maybe", "Likely", "No, are you stupid?", "Absolutely", "I'm afraid I can't answer this one", "Why not?"]
+}
