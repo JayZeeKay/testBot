@@ -1,4 +1,5 @@
 {
     "prefix": "j!",
-    "token": "TOKEN_GOES_HERE"
+    "token": "TOKEN_GOES_HERE",
+    "youtube_api": "TOKEN_GOES_HERE"
 }

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const Discord = require('discord.js');
-const { prefix, token } = require('./config.json');
-const { YOUTUBE_API, OWNERID, STATUSID, COMMANDID, COMMANDALTID, QUOTEID, KARUTAID } = require('./constant.json');
+const { prefix, token, youtube_api } = require('./config.json');
+const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, statusList, contentList, typeList } = require('./constant.json');
 const ytdl = require('ytdl-core');
 const client = new Discord.Client();
 client.commands = new Discord.Collection();
@@ -20,14 +20,14 @@ var search = require('youtube-search');
 
 var opts = {
     maxResults: 5,
-    key: YOUTUBE_API,
+    key: youtube_api,
     type: 'video'
 };
 
 let lastCmdSentTime = {};
 let waitTimeForUser =  60000 * 30; //Users can only run a command once every 30 minutes
 let botLastSent = false;
-let timeBetweenEachCmd = 0; //Bot will only respond once a minute.
+let timeBetweenEachCmd = 0; 
 
 
 // keeps the bot awake
@@ -37,8 +37,25 @@ client.on('message', message => {
 
     // Moderates the Karuta bot messages; deletes it when user does a Karuta command not in #commands
     if (message.author.bot) {
-        if (message.author.id === KARUTAID && message.channel.id !== COMMANDID) {
-            message.delete( {timeout: 1} );
+        // console.log("Bot id: " + message.author.id);
+        // try {
+        //     console.log("Find bot id: " + client.users.cache.find(user => user.username === 'Karuta').id);
+        // } catch (err) {
+        //     console.log("Cache not found");
+        // }
+        //console.log("KARUTAID: " + KARUTAID);
+        //console.log("Channel id: " + message.channel.id);
+        //console.log("Find channel id: " + message.guild.channels.cache.find(channel => channel.name === 'commands').id);
+        try {
+            if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.channel.id !== message.guild.channels.cache.find(channel => channel.name === 'commands').id) {
+                message.delete( {timeout: 1} );
+                const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'thonk');
+                    message.react(reactionEmoji)
+                        .then(console.log)
+                        .catch(console.error);
+            }
+        } catch (err) {
+            console.log("Bot cache not found");
         }
         return;
     }
@@ -64,7 +81,10 @@ client.on('message', message => {
     if (!message.content.startsWith(prefix)) {
         if (message.content.toLowerCase() === 'kd' || message.content.toLowerCase() === 'k!d' || message.content.toLowerCase() === 'kdrop' || message.content.toLowerCase() === 'k!drop') {
             
-            if (message.channel.id !== COMMANDID) return;
+            if (message.channel.id !== message.guild.channels.cache.find(channel => channel.name === "commands").id) {
+                console.log("Channel id not matching");
+                return;
+            }
 
             if (botLastSent) {
                 if (message.createdTimestamp - botLastSent < timeBetweenEachCmd) {
@@ -109,15 +129,15 @@ client.on('message', message => {
     const args = message.content.slice(prefix.length).trim().split(/ +/);
     const commandName = args.shift().toLowerCase();
 
-    if (!(message.channel.id === COMMANDID || message.channel.id === COMMANDALTID)) {
+    if (!(message.channel.id === message.guild.channels.cache.find(channel => channel.name === "commands").id || message.channel.id === message.guild.channels.cache.find(channel => channel.name === "jay-commands").id)) {
         if (!isBotOwner) {
-            return message.reply('that command can only be used in <#' + COMMANDID + '> or <#' + COMMANDALTID + '>');
+            return message.reply('that command can only be used in <#' + message.guild.channels.cache.find(channel => channel.name === "commands").id + '> or <#' + message.guild.channels.cache.find(channel => channel.name === "jay-commands").id + '>');
         }
     }
 
     const voiceChannel = client.channels.cache.get(VOICECHANNELID);
 
-    if (commandName === 'bruh') {
+    if (commandName === 'dm') {
         if (!isBotOwner) return;
         const user = client.users.cache.get(args[0]);
         var content = "";
@@ -127,10 +147,39 @@ client.on('message', message => {
                 content += " ";
             }
         }
-        return user.send(content);
+        try {
+            user.send(content);
+        } catch (err) {
+            console.log("Error trying to send a message");
+            console.log(err);
+        }
+        return;
+    } else if (commandName === 'cache') {
+        if (!isBotOwner) return;
+        if (args[0] === 'users') {
+            console.log("User cache:\n");
+            console.log(client.users.cache.array());
+        } else if (args[0] === 'channels') {
+            console.log("Channel cache:\n");
+            try {
+                console.log(client.channels.cache.findKey(channel => channel.name === args[1]));
+            } catch (err) {
+                console.log(err);
+            }
+        } else if (args[0] === 'karuta') {
+            console.log("Karuta ID cache:\n");
+            try {
+                console.log(client.users.cache.find(user => user.username === 'Karuta').id);
+            } catch (err) {
+                console.log(err);
+            }
+        } else {
+            console.log("Arg needed");
+        }
+        return;
     } else if (commandName === 'msg') {
         if (!isBotOwner) return;
-        var channelName = args[0];
+        var channelName = message.guild.channels.cache.find(channel => channel.name === args[0]).id;
         var message = "";
         for (var i = 1; i < args.length; i++) {
             message += args[i];
@@ -174,6 +223,28 @@ client.on('message', message => {
 
             dispatcher.on('finish', () => voiceChannel.leave());
         })
+    } else if (commandName === 'clear') {
+        if (!isBotOwner) return;
+        message.channel.bulkDelete(args[0]);
+    } else if (commandName === 'botstatus') {
+        if (!isBotOwner) return;
+        // let newStatus = statusList[args[0]];
+        // let newType = typeList[args[1]];
+        let newContent = "";
+        for (var i = 2; i < args.length; i++) {
+            newContent += args[i];
+            if (i + 1 < args.length) {
+                newContent += " ";
+            }
+        }
+        client.user.setPresence({
+            status: args[0],
+            activity: {
+                name: newContent,
+                type: args[1].toUpperCase(),
+            }
+        });
+
     }
 
     const command = client.commands.get(commandName)
@@ -225,6 +296,63 @@ client.on('message', message => {
 
 });
 
+// client.on('message', () => {
+//     //if (Math.random() < 0.98) return;
+//     let newStatus = statusList[Math.floor(Math.random() * statusList.length)];
+//     let newContent = contentList[Math.floor(Math.random() * contentList.length)];
+//     let newType = typeList[Math.floor(Math.random() * typeList.length)];
+
+//     client.user.setPresence({
+//         status: newStatus,
+//         activity: {
+//             name: newContent,
+//             type: newType,
+//         }
+//     });
+// })
+
+client.on('voiceStateUpdate', (oldState, newState) => {
+    let vcLog = client.channels.cache.find(channel => channel.name === "vc-log");
+    let status = " ";
+    // console.log(newState.channelID);
+    // console.log(client.channels.cache.find(channel => channel.name === "high-iq-discussion"));
+    if (oldState.channelID === newState.channelID) {
+        
+        if (oldState.selfDeaf !== newState.selfDeaf) {
+            if (newState.selfDeaf) {
+                status = 'deafened';
+            } else {
+                status = 'undeafened';
+            }
+        } else if (oldState.selfMute !== newState.selfMute) {
+            if (newState.selfMute) {
+                status = 'muted';
+            } else {
+                status = 'unmuted';
+            }
+        } else if (oldState.selfVideo !== newState.selfVideo) {
+            if (newState.selfVideo) {
+                status = 'turned on their camera';
+            } else {
+                status = 'turned off their camera';
+            }
+        } 
+        if (status !== " ") {
+            return vcLog.send(`\`${newState.member.displayName}\` has \`${status}\` in \`#${newState.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
+        } else {
+            return;
+        }
+    } 
+    if (newState.channelID === client.channels.cache.find(channel => channel.name === "high-iq-discussion").id) {
+        status = 'joined\` \`#high-iq-discussion';
+    } else if (newState.channelID === client.channels.cache.find(channel => channel.name === "yeah").id) {
+        status = 'joined\` \`#yeah';
+    } else {
+        status = `left\` \`#${oldState.channel.name}`;
+    }
+    vcLog.send(`\`${newState.member.displayName}\` has \`${status}\` at \`${new Date().toLocaleTimeString()}\``);
+});
+
 // when the client is ready, run this code
 // this event will only trigger one time after logging in
 client.on('ready', () => {
@@ -236,7 +364,7 @@ client.on('ready', () => {
         .setDescription('The bot is up and running!')
         .setColor('GREEN');
 
-    client.channels.cache.get(STATUSID).send(embed);
+    client.channels.cache.find(channel => channel.name === "jaybot-status").send(embed);
 
     client.user.setPresence({
         status: 'online',
