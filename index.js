@@ -29,11 +29,39 @@ let waitTimeForUser =  60000 * 30; //Users can only run a command once every 30 
 let botLastSent = false;
 let timeBetweenEachCmd = 0; 
 
+let msgChannel = client.channels.cache.get('774858295541891082');
+let watchChannel = false;
+let watchDelete = true;
+
 
 // keeps the bot awake
 require("http").createServer(async (req,res) => { res.statusCode = 200; res.write("ok"); res.end(); }).listen(3000, () => console.log("Now listening on port 3000"));
 
 client.on('message', message => {
+
+    if (watchChannel) {
+        let toggle = true;
+        try {
+            //if (message.channel.id !== msgChannel.id || message.author.id === client.users.cache.get(user => user.name === 'jayBot').id) return;
+            if (message.channel.id !== msgChannel.id) toggle = false;
+        } catch (err) {
+            
+        }
+        if (toggle) {
+            let wChannel = client.channels.cache.find(channel => channel.name === 'msg-as-bot');
+            wChannel.send(`${message.author.displayName}: ${message.content}`);
+            try {
+                if (message.attachments.first().proxyURL !== null) {
+                    setTimeout(() => {
+                        wChannel.send(message.attachments.first().proxyURL);
+                    }, 100);
+                }
+            } catch (err) {
+                //console.log("No attachment/Error with the attatchment");
+            }
+        }
+        
+    }
 
     // Moderates the Karuta bot messages; deletes it when user does a Karuta command not in #commands
     if (message.author.bot) {
@@ -179,14 +207,21 @@ client.on('message', message => {
         return;
     } else if (commandName === 'msg') {
         if (!isBotOwner) return;
-        var channelName = message.guild.channels.cache.find(channel => channel.name === args[0]).id;
+        let channel;
+        try {
+            channel = message.guild.channels.cache.find(channel => channel.name === args[0]);
+        } catch (err) {
+            return message.channel.send("You did not provide a valid channel name");
+        }
+        msgChannel = channel;
+        console.log("channel: " + channel.id);
+        console.log("msgChannel: " + msgChannel.id);
         var message = "";
         for (var i = 1; i < args.length; i++) {
             message += args[i];
             message += " ";
         }
-        var toChannel = client.channels.cache.get(channelName);
-        return toChannel.send(message);
+        return channel.send(message);
     } else if (commandName === 'd') {
         if (!isBotOwner) return;
         let embed = new Discord.MessageEmbed()
@@ -244,7 +279,15 @@ client.on('message', message => {
                 type: args[1].toUpperCase(),
             }
         });
-
+    } else if (commandName === 'wc') {
+        if (!isBotOwner) return;
+        watchChannel = !watchChannel;
+        console.log("watchChannel: " + watchChannel);
+        console.log("msgChannel: " + msgChannel);
+    } else if (commandName === 'wd') {
+        if (!isBotOwner) return;
+        watchDelete = !watchDelete;
+        console.log("watchDelet: " + watchDelete);
     }
 
     const command = client.commands.get(commandName)
@@ -317,8 +360,19 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     // console.log(newState.channelID);
     // console.log(client.channels.cache.find(channel => channel.name === "high-iq-discussion"));
     if (oldState.channelID === newState.channelID) {
-        
-        if (oldState.selfDeaf !== newState.selfDeaf) {
+        if (oldState.serverDeaf !== newState.serverDeaf) {
+            if (newState.serverDeaf) {
+                status = 'server deafened';
+            } else {
+                status = 'server undeafened';
+            }
+        } else if (oldState.serverMute !== newState.serverMute) {
+            if (newState.serverMute) {
+                status = 'server muted';
+            } else {
+                status = 'server unmuted';
+            }
+        } else if (oldState.selfDeaf !== newState.selfDeaf) {
             if (newState.selfDeaf) {
                 status = 'deafened';
             } else {
@@ -351,6 +405,14 @@ client.on('voiceStateUpdate', (oldState, newState) => {
         status = `left\` \`#${oldState.channel.name}`;
     }
     vcLog.send(`\`${newState.member.displayName}\` has \`${status}\` at \`${new Date().toLocaleTimeString()}\``);
+});
+
+// this does not get emitted if the message deleted is the author of the message
+client.on('messageDelete', (messageDelete) => {
+    if (!watchDelete) return;
+    let mdLog = client.channels.cache.find(channel => channel.name === 'del_msg-log');
+    mdLog.send(`\`${messageDelete.author.username}\` deleted a message in \`#${messageDelete.channel.name}\`at \`${new Date().toLocaleTimeString()}\``);
+    //mdLog.send("Somebody deleted a message");
 });
 
 // when the client is ready, run this code
