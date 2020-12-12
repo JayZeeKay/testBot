@@ -81,6 +81,8 @@ client.on('message', message => {
                     message.react(reactionEmoji)
                         .then(console.log)
                         .catch(console.error);
+            } else if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.content.includes("I'm dropping 3 cards since this server is currently active!")) {
+                message.channel.send("Karuta has dropped cards @PingMe");
             }
         } catch (err) {
             console.log("Bot cache not found");
@@ -149,6 +151,23 @@ client.on('message', message => {
                 message.channel.send("You can drop again <@" + taggedUser + ">");
             }, 1800000);
             return;
+        } else if (message.content.toLowerCase().includes('waffle')) {
+            //const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'waffle');
+            return message.react('🧇');
+        } else if (message.content.toLowerCase().includes('clown') || message.content.toLowerCase().includes('stupid') || message.content.toLowerCase().includes('retard') || message.content.toLowerCase().includes('idiot')) {
+            return message.react('🤡');
+        } else if (message.content.toLowerCase().includes('bruh')) {
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'vincent');
+            return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('jedi')) {
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'jedismilepng');
+            return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('juan')) {
+            const reactionEmoji = message.guild.emoji.cache.find(emoji => emoji.name === 'juaninterview');
+            return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('alonzo')) {
+            const reactionEmoji = message.guild.emoji.cache.find(emoji => emoji.name === 'alonzothug');
+            return message.react(reactionEmoji);
         } else {
             return;
         }
