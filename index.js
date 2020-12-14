@@ -82,7 +82,7 @@ client.on('message', message => {
                         .then(console.log)
                         .catch(console.error);
             } else if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.content.includes("I'm dropping 3 cards since this server is currently active!")) {
-                message.channel.send("Karuta has dropped cards @PingMe");
+                message.channel.send("Karuta has dropped cards <@&787121884331638796>");
             }
         } catch (err) {
             console.log("Bot cache not found");
@@ -163,10 +163,13 @@ client.on('message', message => {
             const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'jedismilepng');
             return message.react(reactionEmoji);
         } else if (message.content.toLowerCase().includes('juan')) {
-            const reactionEmoji = message.guild.emoji.cache.find(emoji => emoji.name === 'juaninterview');
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'juaninterview');
             return message.react(reactionEmoji);
         } else if (message.content.toLowerCase().includes('alonzo')) {
-            const reactionEmoji = message.guild.emoji.cache.find(emoji => emoji.name === 'alonzothug');
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'alonzothug');
+            return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('nigga')) {
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'esimonkey');
             return message.react(reactionEmoji);
         } else {
             return;
