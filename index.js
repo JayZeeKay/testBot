@@ -1,6 +1,6 @@
 const fs = require('fs');
 const Discord = require('discord.js');
-const { prefix, token, youtube_api } = require('./config.json');
+const { prefix, token, youtube_api, ver_no } = require('./config.json');
 const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, statusList, contentList, typeList } = require('./constant.json');
 const ytdl = require('ytdl-core');
 const client = new Discord.Client();
@@ -29,10 +29,17 @@ let waitTimeForUser =  60000 * 30; //Users can only run a command once every 30 
 let botLastSent = false;
 let timeBetweenEachCmd = 0; 
 
+let lastCmdSentTime2 = {};
+let waitTimeForUser2 =  60000 * 10; //Users can only run a command once every 10 minutes
+let botLastSent2 = false;
+let timeBetweenEachCmd2 = 0; 
+
 let msgChannel = client.channels.cache.get('774858295541891082');
 let watchChannel = false;
 let watchDelete = true;
 
+let trollUser = null;
+let trollEmoji = null;
 
 // keeps the bot awake
 require("http").createServer(async (req,res) => { res.statusCode = 200; res.write("ok"); res.end(); }).listen(3000, () => console.log("Now listening on port 3000"));
@@ -106,6 +113,17 @@ client.on('message', message => {
         return;
     }
 
+    if (trollUser !== null) {
+        if (message.author.username === trollUser) {
+            try {
+                message.react(trollEmoji);
+            } catch (err) {
+                console.log(err);
+                console.log("There was an error");
+            }
+        }
+    }
+
     let isBotOwner = message.author.id === OWNERID;
 
     if (!message.content.startsWith(prefix)) {
@@ -135,7 +153,7 @@ client.on('message', message => {
                     message.react(reactionEmoji)
                         .then(console.log)
                         .catch(console.error);
-                    message.channel.send("You have an ongoing timer!\nThe timer says you will be pinged in `" + (Math.round(((waitTimeForUser - (message.createdTimestamp - userLastSent)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
+                    message.channel.send("You have an ongoing timer!\nThe drop timer says you will be pinged in `" + (Math.round(((waitTimeForUser - (message.createdTimestamp - userLastSent)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
                     return;
                 }
             }
@@ -144,8 +162,15 @@ client.on('message', message => {
             botLastSent = message.createdTimestamp;
 
             const taggedUser = message.author.id;
-        
-            message.channel.send("You will be pinged in `30 minutes` <@" + taggedUser + ">");
+            
+            let currentTime = new Date().getTime();
+            let userLastSent2 = lastCmdSentTime2[message.author.id] || false;
+
+            if (currentTime - userLastSent2 < waitTimeForUser2) {
+                message.channel.send("Note: **Your grab is still on cooldown!** If you grab, you will use your Extra Grab.\nThe grab timer says you will be pinged in `"  + (Math.round(((waitTimeForUser2 - (currentTime - userLastSent2)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
+            }
+
+            message.channel.send("You can drop again in `30 minutes` <@" + taggedUser + ">");
 
             setTimeout(() => {
                 message.channel.send("You can drop again <@" + taggedUser + ">");
@@ -157,7 +182,7 @@ client.on('message', message => {
         } else if (message.content.toLowerCase().includes('clown') || message.content.toLowerCase().includes('stupid') || message.content.toLowerCase().includes('retard') || message.content.toLowerCase().includes('idiot')) {
             return message.react('🤡');
         } else if (message.content.toLowerCase().includes('bruh')) {
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'vincent');
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'bruh');
             return message.react(reactionEmoji);
         } else if (message.content.toLowerCase().includes('jedi')) {
             const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'jedismilepng');
@@ -170,6 +195,9 @@ client.on('message', message => {
             return message.react(reactionEmoji);
         } else if (message.content.toLowerCase().includes('nigga')) {
             const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'esimonkey');
+            return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('uwu')){
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'uwu');
             return message.react(reactionEmoji);
         } else {
             return;
@@ -249,7 +277,8 @@ client.on('message', message => {
         let embed = new Discord.MessageEmbed()
             .setTitle(getCurrentTime())
             .setDescription('Shutting down...')
-            .setColor('RED');
+            .setColor('RED')
+            .setFooter("jayBot v" + ver_no);
 
             client.channels.cache.get(STATUSID).send(embed).then(m => {
             client.destroy();
@@ -310,6 +339,19 @@ client.on('message', message => {
         if (!isBotOwner) return;
         watchDelete = !watchDelete;
         console.log("watchDelet: " + watchDelete);
+    } else if (commandName === 'troll') {
+        if (args[0] === undefined) {
+            trollUser = null;
+            trollEmoji = null;
+        } else {
+            try {
+                trollUser = args[0];
+                trollEmoji = args[1];
+            } catch (err) {
+                console.log(err);
+                console.log("An error occured");
+            }
+        }
     }
 
     const command = client.commands.get(commandName)
@@ -433,9 +475,57 @@ client.on('voiceStateUpdate', (oldState, newState) => {
 client.on('messageDelete', (messageDelete) => {
     if (!watchDelete) return;
     let mdLog = client.channels.cache.find(channel => channel.name === 'del_msg-log');
-    mdLog.send(`\`${messageDelete.author.username}\` deleted a message in \`#${messageDelete.channel.name}\`at \`${new Date().toLocaleTimeString()}\``);
+    mdLog.send(`\`${messageDelete.author.username}\` deleted a message in \`#${messageDelete.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
     //mdLog.send("Somebody deleted a message");
 });
+
+client.on('messageReactionAdd', (messageReaction, user) => {
+    // console.log(messageReaction.emoji.name);
+    // console.log(messageReaction.message.author.username);
+    // console.log(user);
+    let currentTime = new Date().getTime();
+    // console.log(currentTime);
+    if (user === client.users.cache.find(user => user.username === 'Karuta')) return;
+    try {
+        if (messageReaction.message.author.username === client.users.cache.find(user => user.username === 'Karuta').username) {
+            if (messageReaction.emoji.name === '1️⃣' || messageReaction.emoji.name === '2️⃣' || messageReaction.emoji.name === '3️⃣') {
+
+            
+                if (botLastSent2) {
+                    if (currentTime - botLastSent2 < timeBetweenEachCmd2) {
+                        return;
+                    }
+                } 
+                let userLastSent2 = lastCmdSentTime2[user.id] || false;
+
+                // console.log(userLastSent2);
+                // console.log(messageReaction.message.createdTimestamp);
+                // console.log(userLastSent2);
+                // console.log(messageReaction.message.createdTimestamp - waitTimeForUser2);
+                // console.log(waitTimeForUser2);
+
+                if (userLastSent2) {
+                    if (currentTime - userLastSent2 < waitTimeForUser2) {
+                        messageReaction.message.channel.send("You have an ongoing timer!\nThe grab timer says you will be pinged in `" + (Math.round(((waitTimeForUser2 - (currentTime - userLastSent2)) / 60000) * 100) / 100) + " minutes` <@" + user.id + ">");
+                        return;
+                    }
+                }
+
+                lastCmdSentTime2[user.id] = currentTime;
+                botLastSent2 = currentTime;
+
+                messageReaction.message.channel.send("You can grab again in `10 minutes` <@" + user.id + ">");
+
+                setTimeout(() => {
+                    messageReaction.message.channel.send("You can grab again <@" + user.id + ">");
+                }, 600000);
+            }
+        }
+    } catch (err) {
+        console.log("Bot cache not found");
+    }
+    return;
+})
 
 // when the client is ready, run this code
 // this event will only trigger one time after logging in
@@ -446,7 +536,8 @@ client.on('ready', () => {
     let embed = new Discord.MessageEmbed()
         .setTitle(getCurrentTime())
         .setDescription('The bot is up and running!')
-        .setColor('GREEN');
+        .setColor('GREEN')
+        .setFooter("jayBot v" + ver_no);
 
     client.channels.cache.find(channel => channel.name === "jaybot-status").send(embed);
 
