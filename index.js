@@ -1,6 +1,6 @@
 const fs = require('fs');
 const Discord = require('discord.js');
-const { prefix, token, youtube_api, ver_no } = require('./config.json');
+const { prefix, token, youtube_api, ver_no, host } = require('./config.json');
 const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, statusList, contentList, typeList } = require('./constant.json');
 const ytdl = require('ytdl-core');
 const client = new Discord.Client();
@@ -40,6 +40,10 @@ let watchDelete = true;
 
 let trollUser = null;
 let trollEmoji = null;
+
+let floorNumber = 0;
+let battleList = [];
+let raidList = [];
 
 // keeps the bot awake
 require("http").createServer(async (req,res) => { res.statusCode = 200; res.write("ok"); res.end(); }).listen(3000, () => console.log("Now listening on port 3000"));
@@ -90,9 +94,47 @@ client.on('message', message => {
                         .catch(console.error);
             } else if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.content.includes("I'm dropping 3 cards since this server is currently active!")) {
                 message.channel.send("Karuta has dropped cards <@&787121884331638796>");
+            } 
+        } catch (err) {
+            console.log("Karuta cache not found");
+        }
+        try {
+            let desc;
+            let title;
+            try {
+                let embed = message.embeds[0];
+                desc = embed.description;
+                title = embed.title;
+                //console.log(desc);
+                //console.log(desc.includes("Boss"));
+                //console.log(desc.indexOf("Boss") > -1);
+                //console.log(title);
+            } catch (err) {
+                
+            }
+            if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && message.content.includes("Congratulations! You have passed floor")) {
+                console.log("passed");
+                floorNumber = message.content.match(/\d+/);
+                message.channel.send(`You can go to floor ${parseInt(floorNumber)+1} <@${battleList[0]}>`);
+                battleList.shift();
+            } else if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && desc.includes("Better luck next time")) {
+                console.log("failed");
+                floorNumber = message.content.match(/\d+/);
+                message.channel.send(`Try battling the floor again <@${battleList[0]}>`);
+                battleList.shift();
+            } else if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && desc.includes("Total Damage to Raid Boss")) {
+                let userList = [];
+                client.users.cache.array().each(user => userList.push(user.username));
+                console.log(userList);
+                for (var i = 0; i < userList.length; i++) {
+                    if (desc.includes(userList[i])) {
+                        let userId = client.users.cache.find(user => user.username === userList[i]).id;
+                        return message.channel.send(`You can raid battle again <@${userId}>`);
+                    }
+                }
             }
         } catch (err) {
-            console.log("Bot cache not found");
+            console.log("AniGame cache not found");
         }
         return;
     }
@@ -176,6 +218,30 @@ client.on('message', message => {
                 message.channel.send("You can drop again <@" + taggedUser + ">");
             }, 1800000);
             return;
+        } else if (message.content.toLowerCase().localeCompare(".battle") == 0) {
+            try {
+                if (!battleList.includes(message.author.id)) {
+                    battleList.push(message.author.id);
+                } else {
+                    let index = battleList.indexOf(message.author.id);
+                    battleList.splice(index, 1);
+                }
+            } catch {
+                battleList.push(message.author.id);
+            }
+            console.log("battleList: " + battleList);
+        } else if (message.content.toLowerCase().localeCompare(".rd battle") == 0) {
+            try {
+                if (!raidList.includes(message.author.id)) {
+                    raidList.push(message.author.id);
+                } else {
+                    let index = raidList.indexOf(message.author.id);
+                    raidList.splice(index, 1);
+                }
+            } catch {
+                raidList.push(message.author.id);
+            }
+            console.log("raidList: " + raidList);
         } else if (message.content.toLowerCase().includes('waffle')) {
             //const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'waffle');
             return message.react('🧇');
@@ -198,6 +264,9 @@ client.on('message', message => {
             return message.react(reactionEmoji);
         } else if (message.content.toLowerCase().includes('uwu')){
             const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'uwu');
+            return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('drip')){
+            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'drip');
             return message.react(reactionEmoji);
         } else {
             return;
@@ -272,7 +341,7 @@ client.on('message', message => {
             message += " ";
         }
         return channel.send(message);
-    } else if (commandName === 'd') {
+    } else if (commandName === 'kill') {
         if (!isBotOwner) return;
         let embed = new Discord.MessageEmbed()
             .setTitle(getCurrentTime())
@@ -352,6 +421,52 @@ client.on('message', message => {
                 console.log("An error occured");
             }
         }
+    } else if (commandName === 'cooldown' || commandName === 'cd') {
+        let dropKeys = Object.keys(lastCmdSentTime);
+        let dropText = "";
+        console.log("dropKeys: " + dropKeys);
+        dropKeys.forEach((key, index) => {
+            dropText += `${client.users.cache.find(user => user.id === key).username}: ${(Math.round((((60000 * 30) - (message.createdTimestamp - lastCmdSentTime[key])) / 60000) * 100) / 100 )} minutes\n`;
+        })
+        let grabKeys = Object.keys(lastCmdSentTime2);
+        let grabText = "";
+        console.log("grabKeys: " + grabKeys);
+        grabKeys.forEach((key, index) => {
+            grabText += `${client.users.cache.find(user => user.id === key).username}: ${(Math.round((((60000 * 10) - (message.createdTimestamp - lastCmdSentTime2[key])) / 60000) * 100) / 100 )} minutes\n`;
+        })
+        if (dropText == "") dropText = "None";
+        if (grabText == "") grabText = "None";
+        let embed = new Discord.MessageEmbed()
+            .setTitle("Karuta Cooldowns")
+            .addFields(
+                { name: 'Drops', value: dropText },
+                { name: 'Grabs', value: grabText }
+            )
+            .setColor('PURPLE');
+        message.channel.send(embed);
+    } else if (commandName === 'list') {
+        let battleText = "";
+        for (var i = 0; i < battleList.length; i++) {
+            battleText += `${i}: ${client.users.cache.find(user => user.id === battleList[i]).username}\n`;
+        }
+        let raidText = "";
+        for (var i = 0; i < raidList.length; i++) {
+            raidText += `${i}: ${client.users.cache.find(user => user.id === raidList[i]).username}\n`;
+        }
+        if (battleText == "") battleText = "None";
+        if (raidText == "") raidText = "None";
+        let embed = new Discord.MessageEmbed()
+            .setTitle("AniGame List")
+            .addFields(
+                { name: 'Battle', value: battleText },
+                { name: 'Raid', value: raidText }
+            )
+            .setColor('PURPLE')
+            .setFooter('To remove yourself from the list, do .battle or .rd battle again');
+        message.channel.send(embed);
+    } else  if (commandName === 'array') {
+        console.log(client.users.cache.array());
+        
     }
 
     const command = client.commands.get(commandName)
@@ -473,7 +588,7 @@ client.on('voiceStateUpdate', (oldState, newState) => {
 
 // this does not get emitted if the message deleted is the author of the message
 client.on('messageDelete', (messageDelete) => {
-    if (!watchDelete) return;
+    if (!watchDelete || messageDelete.author.bot) return;
     let mdLog = client.channels.cache.find(channel => channel.name === 'del_msg-log');
     mdLog.send(`\`${messageDelete.author.username}\` deleted a message in \`#${messageDelete.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
     //mdLog.send("Somebody deleted a message");
@@ -537,7 +652,7 @@ client.on('ready', () => {
         .setTitle(getCurrentTime())
         .setDescription('The bot is up and running!')
         .setColor('GREEN')
-        .setFooter("jayBot v" + ver_no);
+        .setFooter("jayBot v" + ver_no + " | host: " + host);
 
     client.channels.cache.find(channel => channel.name === "jaybot-status").send(embed);
 
@@ -560,6 +675,55 @@ function getCurrentDate(){
     let year = new Date().getFullYear();
     return month + '/' + day + '/' + year;
 }
+
+/*
+      message {Discord.Message}: the message you want to search in
+      target {string}: the string you're looking for
+      {
+        caseSensitive {boolean}: whether you want the search to be case case-sensitive
+        author {boolean}: whether you want to search in the author's name
+        description {boolean}: whether you want to search in the description
+        footer {boolean}: whether you want to search in the footer
+        title {boolean}: whether you want to search in the title
+        fields {boolean}: whether you want to search in the fields
+      }
+     */
+    function findInMessage(message, target, {
+        caseSensitive = false,
+        author = false,
+        description = true,
+        footer = false,
+        title = false,
+        fields = false
+      }) {
+        if (!target || !message) return null;
+        let str = caseSensitive ? target : target.toLowerCase();
+      
+        if ((caseSensitive && message.content.includes(str)) ||
+          (!caseSensitive && message.content.toLowerCase().includes(str))) return true;
+      
+        for (let embed of message.embeds) {
+          if ((caseSensitive && (
+              (author && embed.author.includes(str)) ||
+              (description && embed.description.includes(str)) ||
+              (footer && embed.footer.includes(str)) ||
+              (title && embed.title.includes(str)))) ||
+            (!caseSensitive && (
+              (author && embed.author.toLowerCase().includes(str)) ||
+              (description && embed.description.toLowerCase().includes(str)) ||
+              (footer && embed.footer.toLowerCase().includes(str)) ||
+              (title && embed.title.toLowerCase().includes(str))))
+          ) return true;
+      
+          if (fields)
+            for (let field of embed.fields) {
+              if ((caseSensitive && [field.name, field.value].includes(str)) ||
+                (!caseSensitive && [field.name.toLowerCase(), field.value.toLowerCase()].includes(str))) return true;
+            }
+        }
+      
+        return false;
+      }
 
 // login to Discord with your app's token
 client.login(token);
