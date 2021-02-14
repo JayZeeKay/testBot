@@ -1,7 +1,7 @@
 const fs = require('fs');
 const Discord = require('discord.js');
 const { prefix, token, youtube_api, ver_no, host } = require('./config.json');
-const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, statusList, contentList, typeList } = require('./constant.json');
+const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, VOICECHANNELID2, statusList, contentList, typeList } = require('./constant.json');
 const ytdl = require('ytdl-core');
 const client = new Discord.Client();
 client.commands = new Discord.Collection();
@@ -417,17 +417,23 @@ client.on('message', message => {
             return console.log("You may close this window");
         });
     } else if (commandName === 'playyt') {
-        voiceChannel.join().then(connection => {
-            const stream = ytdl(args[0], { filter: 'audioonly' });
-            const dispatcher = connection.play(stream);
-            
-            dispatcher.on('finish', () => voiceChannel.leave());
-        });
+        if (message.member.voice.channel) {
+            message.member.voice.channel.join().then(connection => {
+                const stream = ytdl(args[0], { filter: 'audioonly' });
+                const dispatcher = connection.play(stream);
+                
+                dispatcher.on('finish', () => voiceChannel.leave());
+            });
+        }
     } else if (commandName === 'join') {
-        voiceChannel.join();
+        if (message.member.voice.channel) {
+            message.member.voice.channel.join();
+        }
         console.log('Bot joined the vc');
     } else if (commandName === 'leave') {
-        voiceChannel.leave();
+        if (message.member.voice.channel) {
+            message.member.voice.channel.leave();
+        }
         console.log('Bot left the vc');
     } else if (commandName === 'testtest') {
         voiceChannel.join().then(connection => {
@@ -543,6 +549,18 @@ client.on('message', message => {
         muteList.push(user);
         console.log(muteList);
         return;
+    } else if (commandName === 'renamevc') {
+        if (args[0] === undefined) return;
+        if (!(args[0].match(/^[a-zA-Z0-9_.-]*$/))) return;
+        let vc = message.guild.channels.cache.find(channel => channel.id === VOICECHANNELID2);
+        console.log(vc);
+        try {
+            vc.setName(args[0]);  
+        } catch (err) {
+            return message.author.send("Invalid name");
+        }
+        message.author.send(`You have changed the vc name to ${args[0]}`)
+        return message.delete();
     }
 
     const command = client.commands.get(commandName)

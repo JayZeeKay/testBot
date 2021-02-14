@@ -3,6 +3,7 @@
     "STATUSID": "777323122000527370",
     "QUOTEID": "778661452466225172",
     "VOICECHANNELID": "774886972278702093",
+    "VOICECHANNELID2": "805339040895205396",
     "coinToss": ["It was Heads", "It was Tails", "... It landed on its side"],
     "eightball": ["Try again", "Yes", "No", "Probably", "Unlikely", "Impossible", "Maybe", "Likely", "No, are you stupid?", "Absolutely", "I'm afraid I can't answer this one", "Why not?"],
     "statusList": ["online", "idle", "offline", "dnd"],
