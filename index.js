@@ -45,10 +45,18 @@ let floorNumber = 0;
 let battleList = [];
 let raidList = [];
 
+let muteList = [];
+
 // keeps the bot awake
 require("http").createServer(async (req,res) => { res.statusCode = 200; res.write("ok"); res.end(); }).listen(3000, () => console.log("Now listening on port 3000"));
 
 client.on('message', message => {
+
+    for (var i = 0; i < muteList.length; i++) {
+        if (muteList[i] == message.author.id) {
+            message.delete();
+        }
+    }
 
     if (watchChannel) {
         let toggle = true;
@@ -101,31 +109,76 @@ client.on('message', message => {
         try {
             let desc;
             let title;
+            let author;
             try {
                 let embed = message.embeds[0];
                 desc = embed.description;
                 title = embed.title;
-                //console.log(desc);
+                author = embed.author.name;
+                //console.log("desc: \n" + desc);
                 //console.log(desc.includes("Boss"));
                 //console.log(desc.indexOf("Boss") > -1);
-                //console.log(title);
+                console.log("title: \n" + title);
             } catch (err) {
                 
             }
             if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && message.content.includes("Congratulations! You have passed floor")) {
-                console.log("passed");
                 floorNumber = message.content.match(/\d+/);
-                message.channel.send(`You can go to floor ${parseInt(floorNumber)+1} <@${battleList[0]}>`);
-                battleList.shift();
+                console.log("floorNumber: " + floorNumber);
+                console.log("congratulations \n\n\n")
+            }
+            if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && desc.includes("unlocked the next region!")) {
+                let locNumber = desc.match(/^[^\d]*(\d+)/);
+                let userList = [];
+                client.users.cache.each(user => userList.push(user.username));
+                console.log("userList: " + userList);
+                locNumber++;
+                for (var i = 0; i < userList.length; i++) {
+                    if (author.includes(userList[i])) {
+                        let userId = client.users.cache.find(user => user.username === userList[i]).id;
+                        return message.channel.send(`You can go to location ${locNumber} <@${userId}>`);
+                    }
+                }
+            } else if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && desc.includes("has defeated enemy")) {
+                console.log("floorNumber: " + floorNumber);
+                console.log("hi");
+                if (floorNumber === 0) {
+                    let userList = [];
+                    client.users.cache.each(user => userList.push(user.username));
+                    console.log("userList: " + userList);
+                    for (var i = 0; i < userList.length; i++) {
+                        if (author.includes(userList[i])) {
+                            let userId = client.users.cache.find(user => user.username === userList[i]).id;
+                            return message.channel.send(`You can battle again <@${userId}>`);
+                        }
+                    }
+                } else {
+                    let userList = [];
+                    client.users.cache.each(user => userList.push(user.username));
+                    console.log("userList: " + userList);
+                    floorNumber++;
+                    for (var i = 0; i < userList.length; i++) {
+                        if (author.includes(userList[i])) {
+                            let userId = client.users.cache.find(user => user.username === userList[i]).id;
+                            message.channel.send(`You can go to floor ${floorNumber} <@${userId}>`);
+                            return floorNumber = 0;
+                        }
+                    }
+                }
             } else if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && desc.includes("Better luck next time")) {
-                console.log("failed");
-                floorNumber = message.content.match(/\d+/);
-                message.channel.send(`Try battling the floor again <@${battleList[0]}>`);
-                battleList.shift();
+                let userList = [];
+                client.users.cache.each(user => userList.push(user.username));
+                console.log("userList: " + userList);
+                for (var i = 0; i < userList.length; i++) {
+                    if (title.includes(userList[i])) {
+                        let userId = client.users.cache.find(user => user.username === userList[i]).id;
+                        return message.channel.send(`Try battling the floor again <@${userId}>`);
+                    }
+                }
             } else if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && desc.includes("Total Damage to Raid Boss")) {
                 let userList = [];
-                client.users.cache.array().each(user => userList.push(user.username));
-                console.log(userList);
+                client.users.cache.each(user => userList.push(user.username));
+                console.log("userList: " + userList);
                 for (var i = 0; i < userList.length; i++) {
                     if (desc.includes(userList[i])) {
                         let userId = client.users.cache.find(user => user.username === userList[i]).id;
@@ -268,6 +321,16 @@ client.on('message', message => {
         } else if (message.content.toLowerCase().includes('drip')){
             const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'drip');
             return message.react(reactionEmoji);
+        } else if (message.content.toLowerCase().includes('test123')) {
+            let userList = [];
+            client.users.cache.each(user => userList.push(user.username));
+            console.log("userList: " + userList);
+            for (var i = 0; i < userList.length; i++) {
+                if (message.content.includes(userList[i])) {
+                    let userId = client.users.cache.find(user => user.username === userList[i]).id;
+                    return message.channel.send(`You can raid battle again <@${userId}>`);
+                }
+            }
         } else {
             return;
         }
@@ -347,7 +410,7 @@ client.on('message', message => {
             .setTitle(getCurrentTime())
             .setDescription('Shutting down...')
             .setColor('RED')
-            .setFooter("jayBot v" + ver_no);
+            .setFooter("jayBot v" + ver_no + " | host: " + host);
 
             client.channels.cache.get(STATUSID).send(embed).then(m => {
             client.destroy();
@@ -464,9 +527,22 @@ client.on('message', message => {
             .setColor('PURPLE')
             .setFooter('To remove yourself from the list, do .battle or .rd battle again');
         message.channel.send(embed);
-    } else  if (commandName === 'array') {
+    } else if (commandName === 'array') {
         console.log(client.users.cache.array());
-        
+    } else if (commandName === 'mute') {
+        if (!isBotOwner) return;
+        if (args[0] === undefined) return;
+        let user = client.users.cache.find(user => user.username === args[0]).id;
+        for (var i = 0; i < muteList.length; i++) {
+            if (muteList[i] === user) {
+                muteList.splice(i, 1);
+                console.log(muteList);
+                return;
+            }
+        }
+        muteList.push(user);
+        console.log(muteList);
+        return;
     }
 
     const command = client.commands.get(commandName)
@@ -581,7 +657,12 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     } else if (newState.channelID === client.channels.cache.find(channel => channel.name === "yeah").id) {
         status = 'joined\` \`#yeah';
     } else {
-        status = `left\` \`#${oldState.channel.name}`;
+        try {
+            status = `left\` \`#${oldState.channel.name}`;
+        } catch (err) {
+            console.log("Error trying to log vc status");
+        }
+        
     }
     vcLog.send(`\`${newState.member.displayName}\` has \`${status}\` at \`${new Date().toLocaleTimeString()}\``);
 });
