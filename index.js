@@ -1,8 +1,10 @@
 const fs = require('fs');
 const Discord = require('discord.js');
-const { prefix, token, youtube_api, ver_no, host } = require('./config.json');
-const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, VOICECHANNELID2, statusList, contentList, typeList } = require('./constant.json');
+const { prefix, token, youtube_api, ocr_api, google_translate_api, ver_no, host } = require('./config.json');
+const { OWNERID, STATUSID, QUOTEID, VOICECHANNELID, VOICECHANNELID2, DROPPERROLE, statusList, contentList, typeList, reactList, wishList } = require('./constant.json');
 const ytdl = require('ytdl-core');
+const fetch = require('node-fetch');
+const Canvas = require('canvas');
 const client = new Discord.Client();
 client.commands = new Discord.Collection();
 const cooldowns = new Discord.Collection();
@@ -47,10 +49,12 @@ let raidList = [];
 
 let muteList = [];
 
+let characterUrl;
+
 // keeps the bot awake
 require("http").createServer(async (req,res) => { res.statusCode = 200; res.write("ok"); res.end(); }).listen(3000, () => console.log("Now listening on port 3000"));
 
-client.on('message', message => {
+client.on('message', async message => {
 
     for (var i = 0; i < muteList.length; i++) {
         if (muteList[i] == message.author.id) {
@@ -84,16 +88,23 @@ client.on('message', message => {
 
     // Moderates the Karuta bot messages; deletes it when user does a Karuta command not in #commands
     if (message.author.bot) {
-        // console.log("Bot id: " + message.author.id);
-        // try {
-        //     console.log("Find bot id: " + client.users.cache.find(user => user.username === 'Karuta').id);
-        // } catch (err) {
-        //     console.log("Cache not found");
-        // }
-        //console.log("KARUTAID: " + KARUTAID);
-        //console.log("Channel id: " + message.channel.id);
-        //console.log("Find channel id: " + message.guild.channels.cache.find(channel => channel.name === 'commands').id);
+        
         try {
+            let embed;
+            let image;
+            let title;
+            let desc;
+            try {
+                embed = message.embeds[0];
+                image = embed.thumbnail.url;
+                title = embed.title;
+                desc = embed.description;
+                console.log(image);
+                console.log(title);
+                console.log(desc);
+            } catch (err) {
+                //console.log("something did not work");
+            }
             if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.channel.id !== message.guild.channels.cache.find(channel => channel.name === 'commands').id) {
                 message.delete( {timeout: 1} );
                 const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'thonk');
@@ -101,26 +112,65 @@ client.on('message', message => {
                         .then(console.log)
                         .catch(console.error);
             } else if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.content.includes("I'm dropping 3 cards since this server is currently active!")) {
-                message.channel.send("Karuta has dropped cards <@&787121884331638796>");
+                let dropperList, drops;
+                let messageLink = `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`;
+                dropperList = message.guild.roles.cache.get(DROPPERROLE).members.map(m=>m.user.id);
+                if (message.attachments.first().proxyURL !== null) {
+                    drops = message.attachments.first().proxyURL;
+                    console.log(drops);
+                }
+                for (var i = 0; i < dropperList.length; i++) {
+                    try {
+                        let embed = new Discord.MessageEmbed()
+                            .setTitle("Karuta has dropped cards")
+                            .setDescription("Go to drop: " + messageLink)
+                            .setColor('PURPLE')
+                            .setFooter("jayBot v" + ver_no + " | host: " + host)
+                            .setImage(drops);
+                        client.users.cache.get(dropperList[i]).send(embed);
+                    } catch (err) {
+                        console.log("Could not send Karuta drop message to " + client.users.cache.find(user => user.id === dropperList[i]).username);
+                    }
+                }
+                let url = `https://api.ocr.space/parse/imageurl?apikey=${ocr_api}&url=${drops}`;
+                console.log(url);
+                checkDrops(url, messageLink, drops);
+            } else if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && message.content.includes("is dropping 3 cards!")) {
+                let drops = message.attachments.first().proxyURL;
+                let url = `https://api.ocr.space/parse/imageurl?apikey=${ocr_api}&url=${drops}`;
+                let messageLink = `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`;
+                console.log(url);
+                checkDrops(url, messageLink, drops);
+            } else if (message.author.id === client.users.cache.find(user => user.username === 'Karuta').id && title.includes("Character Lookup")) {
+                characterUrl = image;
+                console.log("characterUrL: " + characterUrl);
             } 
         } catch (err) {
-            console.log("Karuta cache not found");
+            //console.log("Karuta cache not found");
         }
         try {
             let desc;
             let title;
             let author;
+            let image;
             try {
                 let embed = message.embeds[0];
                 desc = embed.description;
                 title = embed.title;
                 author = embed.author.name;
+                image = embed.thumbnail;
+                console.log(message.embeds[0].thumbnail);
                 //console.log("desc: \n" + desc);
                 //console.log(desc.includes("Boss"));
                 //console.log(desc.indexOf("Boss") > -1);
-                console.log("title: \n" + title);
+                //console.log("title: \n" + title);
             } catch (err) {
                 
+            }
+            try {
+                image = message.embeds[0].thumbnail;
+                console.log(message.embeds[0].thumbnail);
+            } catch (err) {
             }
             if (message.author.id === client.users.cache.find(user => user.username === 'AniGame').id && message.content.includes("Congratulations! You have passed floor")) {
                 floorNumber = message.content.match(/\d+/);
@@ -187,7 +237,7 @@ client.on('message', message => {
                 }
             }
         } catch (err) {
-            console.log("AniGame cache not found");
+            //console.log("AniGame cache not found");
         }
         return;
     }
@@ -195,7 +245,13 @@ client.on('message', message => {
     if (message.channel.type === 'dm') {
         //console.log(message.author.username + ": " + message.content);
         //console.log(message.attachments.proxyURL);
-        client.users.cache.get(OWNERID).send(message.author.username + ": " + message.content);
+        let embed = new Discord.MessageEmbed()
+            .setTitle(message.author.username)
+            .setDescription(message.content)
+            .setColor('PURPLE')
+            .setFooter(message.author.id)
+            .setImage(message.author.avatarURL({ format: "png", dynamic: true }));
+        client.users.cache.get(OWNERID).send(embed);
         try {
             if (message.attachments.first().proxyURL !== null) {
                 setTimeout(() => {
@@ -209,7 +265,7 @@ client.on('message', message => {
     }
 
     if (trollUser !== null) {
-        if (message.author.username === trollUser) {
+        if (message.author.id === trollUser) {
             try {
                 message.react(trollEmoji);
             } catch (err) {
@@ -221,55 +277,70 @@ client.on('message', message => {
 
     let isBotOwner = message.author.id === OWNERID;
 
+    if (Math.random() > 0.3) {
+
+    for (var i = 0; i < reactList.length; i++) {
+        if (message.content.includes(reactList[i][0])) {
+            try {
+                let reactEmoji = message.guild.emojis.cache.find(emoji => emoji.name === reactList[i][1]);
+                message.react(reactEmoji);
+            } catch (err) {
+                message.react(reactList[i][1]);
+            }
+        }
+    }
+
+    }
+
     if (!message.content.startsWith(prefix)) {
         if (message.content.toLowerCase() === 'kd' || message.content.toLowerCase() === 'k!d' || message.content.toLowerCase() === 'kdrop' || message.content.toLowerCase() === 'k!drop') {
             
-            if (message.channel.id !== message.guild.channels.cache.find(channel => channel.name === "commands").id) {
-                console.log("Channel id not matching");
-                return;
-            }
+            // if (message.channel.id !== message.guild.channels.cache.find(channel => channel.name === "commands").id) {
+            //     console.log("Channel id not matching");
+            //     return;
+            // }
 
-            if (botLastSent) {
-                if (message.createdTimestamp - botLastSent < timeBetweenEachCmd) {
-                    // console.log("timeBetweenEachCmd: " + timeBetweenEachCmd);
-                    // console.log("botLastSent: " + botLastSent);
-                    return;
-                }
-            } 
+            // if (botLastSent) {
+            //     if (message.createdTimestamp - botLastSent < timeBetweenEachCmd) {
+            //         // console.log("timeBetweenEachCmd: " + timeBetweenEachCmd);
+            //         // console.log("botLastSent: " + botLastSent);
+            //         return;
+            //     }
+            // } 
 
-            let userLastSent = lastCmdSentTime[message.author.id] || false;
+            // let userLastSent = lastCmdSentTime[message.author.id] || false;
 
-            if (userLastSent) {
-                if (message.createdTimestamp - userLastSent < waitTimeForUser) {
-                    // console.log("timeBetweenEachCmd: " + waitTimeForUser);
-                    // console.log("userLastSent: " + userLastSent);
-                    // console.log("message.createdTimestamp - userLastSent: " + (message.createdTimestamp - userLastSent));
-                    const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'thonk');
-                    message.react(reactionEmoji)
-                        .then(console.log)
-                        .catch(console.error);
-                    message.channel.send("You have an ongoing timer!\nThe drop timer says you will be pinged in `" + (Math.round(((waitTimeForUser - (message.createdTimestamp - userLastSent)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
-                    return;
-                }
-            }
+            // if (userLastSent) {
+            //     if (message.createdTimestamp - userLastSent < waitTimeForUser) {
+            //         // console.log("timeBetweenEachCmd: " + waitTimeForUser);
+            //         // console.log("userLastSent: " + userLastSent);
+            //         // console.log("message.createdTimestamp - userLastSent: " + (message.createdTimestamp - userLastSent));
+            //         const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'thonk');
+            //         message.react(reactionEmoji)
+            //             .then(console.log)
+            //             .catch(console.error);
+            //         message.channel.send("You have an ongoing timer!\nThe drop timer says you will be pinged in `" + (Math.round(((waitTimeForUser - (message.createdTimestamp - userLastSent)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
+            //         return;
+            //     }
+            // }
 
-            lastCmdSentTime[message.author.id] = message.createdTimestamp;
-            botLastSent = message.createdTimestamp;
+            // lastCmdSentTime[message.author.id] = message.createdTimestamp;
+            // botLastSent = message.createdTimestamp;
 
-            const taggedUser = message.author.id;
+            // const taggedUser = message.author.id;
             
-            let currentTime = new Date().getTime();
-            let userLastSent2 = lastCmdSentTime2[message.author.id] || false;
+            // let currentTime = new Date().getTime();
+            // let userLastSent2 = lastCmdSentTime2[message.author.id] || false;
 
-            if (currentTime - userLastSent2 < waitTimeForUser2) {
-                message.channel.send("Note: **Your grab is still on cooldown!** If you grab, you will use your Extra Grab.\nThe grab timer says you will be pinged in `"  + (Math.round(((waitTimeForUser2 - (currentTime - userLastSent2)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
-            }
+            // if (currentTime - userLastSent2 < waitTimeForUser2) {
+            //     message.channel.send("Note: **Your grab is still on cooldown!** If you grab, you will use your Extra Grab.\nThe grab timer says you will be pinged in `"  + (Math.round(((waitTimeForUser2 - (currentTime - userLastSent2)) / 60000) * 100) / 100) + " minutes` <@" + message.author.id + ">");
+            // }
 
-            message.channel.send("You can drop again in `30 minutes` <@" + taggedUser + ">");
+            // message.channel.send("You can drop again in `30 minutes` <@" + taggedUser + ">");
 
-            setTimeout(() => {
-                message.channel.send("You can drop again <@" + taggedUser + ">");
-            }, 1800000);
+            // setTimeout(() => {
+            //     message.channel.send("You can drop again <@" + taggedUser + ">");
+            // }, 1800000);
             return;
         } else if (message.content.toLowerCase().localeCompare(".battle") == 0) {
             try {
@@ -295,32 +366,6 @@ client.on('message', message => {
                 raidList.push(message.author.id);
             }
             console.log("raidList: " + raidList);
-        } else if (message.content.toLowerCase().includes('waffle')) {
-            //const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'waffle');
-            return message.react('🧇');
-        } else if (message.content.toLowerCase().includes('clown') || message.content.toLowerCase().includes('stupid') || message.content.toLowerCase().includes('retard') || message.content.toLowerCase().includes('idiot')) {
-            return message.react('🤡');
-        } else if (message.content.toLowerCase().includes('bruh')) {
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'bruh');
-            return message.react(reactionEmoji);
-        } else if (message.content.toLowerCase().includes('jedi')) {
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'jedismilepng');
-            return message.react(reactionEmoji);
-        } else if (message.content.toLowerCase().includes('juan')) {
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'juaninterview');
-            return message.react(reactionEmoji);
-        } else if (message.content.toLowerCase().includes('alonzo')) {
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'alonzothug');
-            return message.react(reactionEmoji);
-        } else if (message.content.toLowerCase().includes('nigga')) {
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'esimonkey');
-            return message.react(reactionEmoji);
-        } else if (message.content.toLowerCase().includes('uwu')){
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'uwu');
-            return message.react(reactionEmoji);
-        } else if (message.content.toLowerCase().includes('drip')){
-            const reactionEmoji = message.guild.emojis.cache.find(emoji => emoji.name === 'drip');
-            return message.react(reactionEmoji);
         } else if (message.content.toLowerCase().includes('test123')) {
             let userList = [];
             client.users.cache.each(user => userList.push(user.username));
@@ -412,6 +457,10 @@ client.on('message', message => {
             .setColor('RED')
             .setFooter("jayBot v" + ver_no + " | host: " + host);
 
+            let vcLog = client.channels.cache.find(channel => channel.name === "vc-log");
+            //vcLog.send(" ");
+            vcLog.send(`\nVC status tracking is \`off\`\n`);
+            //vcLog.send(" ");
             client.channels.cache.get(STATUSID).send(embed).then(m => {
             client.destroy();
             return console.log("You may close this window");
@@ -455,7 +504,7 @@ client.on('message', message => {
         // let newStatus = statusList[args[0]];
         // let newType = typeList[args[1]];
         let newContent = "";
-        for (var i = 2; i < args.length; i++) {
+        for (var i = 2; i < args.lengt  h; i++) {
             newContent += args[i];
             if (i + 1 < args.length) {
                 newContent += " ";
@@ -561,6 +610,123 @@ client.on('message', message => {
         }
         message.author.send(`You have changed the vc name to ${args[0]}`)
         return message.delete();
+    } else if (commandName === 'fetch') {
+        let msg = message;
+        let id = args[0];
+        message.channel.messages.fetch(id)
+            .then(fetch => { msg.channel.send(fetch.content) });
+        return;
+    } else if (commandName === 'karutaping') {
+        let dropperList;
+        let messageLink = `https://discord.com/channels/${message.guild.id}/${message.channel.id}/${message.id}`;
+        // message.guild.roles.fetch('629674679321493525')
+        //     .then(role => dropperList = role.members.map(m => m.user.id))
+        //     .then(console.log(dropperList));
+        //dropperList = message.guild.roles.fetch(629674679321493525).members.map(m=>m.user.id);
+        // dropperList = message.guild.roles.fetch('629674679321493525')
+        //     .then(console.log(dropperList));
+        dropperList = message.guild.roles.cache.get('629674679321493525').members.map(m=>m.user.id);
+        for (var i = 0; i < dropperList.length; i++) {
+            try {
+                client.users.cache.get(dropperList[i]).send("Karuta has dropped cards\n" + messageLink);
+            } catch (err) {
+                console.log("Could not send Karuta drop message to " + client.users.cache.find(user => user.id === dropperList[i]).username);
+            }
+        }
+    } else if (commandName === 'ocr') {
+        let url = `https://api.ocr.space/parse/imageurl?apikey=${ocr_api}&url=${message.attachments.first().proxyURL}`;
+        console.log(url);
+        //let msg = await message.channel.send("Loading parsed text...");
+        //let json = await fetch(url)
+            //.then(response => response.json());
+            //.then(json => msg.edit("test test test"));
+            //console.log(json.ParsedResults.ParsedText);
+            //await msg.edit(json.ParsedResults.ParsedText);
+            //.then(text => JSON.parse(text))
+            //.then(json => message.channel.send(json.ParsedResults.ParsedText));
+            //.then(file => JSON.parse(file))
+            //.then(json => message.channel.send(json));
+        // fetch(url)
+        //     .then(response => response.text())
+        //     .then(text => JSON.parse(text))
+        //     .then((json) => {
+        //         console.log(json)
+        //     });
+        fetch(url)
+            .then(response => response.json())
+            .then((json) => {
+                //console.log(json.ParsedResults[0].ParsedText);
+                text = json.ParsedResults[0].ParsedText;
+                message.channel.send(text);
+                // for (player in wishList) {
+                //     //console.log("player: " + player);
+                //     for (word in wishList[player]) {
+                //         //console.log("word: " + word);
+                //         //console.log("wordArray: " + wishList[player][word]);
+                //         //console.log("player.toString(): " + player.toString());
+                //         if (text.includes(wishList[player][word])) {
+                //             let dm = client.users.cache.find(user => user.username === player.toString());
+                //             let embed = new Discord.MessageEmbed()
+                //                 .setTitle("Karuta has dropped cards")
+                //                 .setDescription("Go to drop: " + messageLink)
+                //                 .setColor('PURPLE')
+                //                 .setFooter("jayBot v" + ver_no + " | host: " + host)
+                //                 .setImage(drops);
+                //             try {
+                //                 dm.send("Detected: " + word);
+                //             } catch (err) {
+                //                  console.log("Could not send wishList message");
+                //             }
+                //         }
+                //     }
+                // }
+            });
+        //const obj = JSON.parse(file);
+        //console.log(file);
+        //message.channel.send(file);
+    } else if (commandName === 'ocrjpn') {
+        let url = `https://api.ocr.space/parse/imageurl?apikey=${ocr_api}&url=${message.attachments.first().proxyURL}&language=jpn`;
+        console.log(url);
+        fetch(url)
+            .then(response => response.json())
+            .then((json) => {
+                //console.log(json.ParsedResults[0].ParsedText);
+                text = json.ParsedResults[0].ParsedText;
+                message.channel.send(text);
+            });
+    } else if (commandName === 'imagegenerate') {
+        const canvas = Canvas.createCanvas(200, 800);
+
+        const ctx = canvas.getContext('2d');
+
+        const avatar = await Canvas.loadImage(message.author.displayAvatarURL( { format: 'png' }));
+
+        ctx.drawImage(avatar, 25, 25, canvas.width, canvas.height);
+
+        const attachment = new Discord.MessageAttachment(canvas.toBuffer(), 'test-image.png');
+
+        message.channel.send('Long', attachment);
+    } else if (commandName === 'testframe') {
+
+        //const frameUrl = args[0];
+
+        const charUrl = args[0];
+        const frameUrl = args[1];
+
+        const canvas = Canvas.createCanvas(274, 400);
+        const ctx = canvas.getContext('2d');
+
+        //const image = await Canvas.loadImage(characterUrl);
+        const image = await Canvas.loadImage(charUrl);
+        ctx.drawImage(image, 30, 55, canvas.width - 60, canvas.height - 85);
+
+        //const frame = await Canvas.loadImage('./brass2.png');
+        const frame = await Canvas.loadImage(frameUrl);
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+
+        const attachment = new Discord.MessageAttachment(canvas.toBuffer(), 'image.png');
+
+        message.channel.send(attachment);
     }
 
     const command = client.commands.get(commandName)
@@ -665,31 +831,49 @@ client.on('voiceStateUpdate', (oldState, newState) => {
             }
         } 
         if (status !== " ") {
-            return vcLog.send(`\`${newState.member.displayName}\` has \`${status}\` in \`#${newState.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
+            return vcLog.send(`\`${newState.member.displayName} (${newState.member.user.username})\` has \`${status}\` in \`#${newState.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
         } else {
             return;
         }
     } 
-    if (newState.channelID === client.channels.cache.find(channel => channel.name === "high-iq-discussion").id) {
-        status = 'joined\` \`#high-iq-discussion';
-    } else if (newState.channelID === client.channels.cache.find(channel => channel.name === "yeah").id) {
-        status = 'joined\` \`#yeah';
-    } else {
+    try {
+        if (newState.channel) {
+            status = `joined\` \`#${newState.channel.name}`;
+        } else {
+            try {
+                status = `left\` \`#${oldState.channel.name}`;
+            } catch (err) {
+                console.log("Error trying to log vc status");
+            } 
+        }
+    } catch (err)  {
         try {
             status = `left\` \`#${oldState.channel.name}`;
         } catch (err) {
             console.log("Error trying to log vc status");
         }
-        
     }
-    vcLog.send(`\`${newState.member.displayName}\` has \`${status}\` at \`${new Date().toLocaleTimeString()}\``);
+    vcLog.send(`\`${newState.member.displayName} (${newState.member.user.username})\` has \`${status}\` at \`${new Date().toLocaleTimeString()}\``);
 });
 
 // this does not get emitted if the message deleted is the author of the message
-client.on('messageDelete', (messageDelete) => {
+client.on('messageDelete', async (messageDelete) => {
     if (!watchDelete || messageDelete.author.bot) return;
     let mdLog = client.channels.cache.find(channel => channel.name === 'del_msg-log');
-    mdLog.send(`\`${messageDelete.author.username}\` deleted a message in \`#${messageDelete.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
+    let author = messageDelete.author;
+    let username = author.username;
+    let displayName = messageDelete.member.displayName;
+    // try {
+    //     displayName = await messageDelete.guild.members.fetch(author.id).displayName.then(m => {
+    //         mdLog.send(`\`${displayName} (${username})\` deleted a message in \`#${messageDelete.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
+    //     });
+    // } catch (err) {
+    //     mdLog.send(`\`${displayName} (${username})\` deleted a message in \`#${messageDelete.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
+    //     console.log("Could not get displayName");
+    // }
+    // console.log(author);
+    // console.log(displayName);
+    mdLog.send(`\`${displayName} (${username})\` deleted a message in \`#${messageDelete.channel.name}\` at \`${new Date().toLocaleTimeString()}\``);
     //mdLog.send("Somebody deleted a message");
 });
 
@@ -702,41 +886,41 @@ client.on('messageReactionAdd', (messageReaction, user) => {
     if (user === client.users.cache.find(user => user.username === 'Karuta')) return;
     try {
         if (messageReaction.message.author.username === client.users.cache.find(user => user.username === 'Karuta').username) {
-            if (messageReaction.emoji.name === '1️⃣' || messageReaction.emoji.name === '2️⃣' || messageReaction.emoji.name === '3️⃣') {
+            // if (messageReaction.emoji.name === '1️⃣' || messageReaction.emoji.name === '2️⃣' || messageReaction.emoji.name === '3️⃣') {
 
             
-                if (botLastSent2) {
-                    if (currentTime - botLastSent2 < timeBetweenEachCmd2) {
-                        return;
-                    }
-                } 
-                let userLastSent2 = lastCmdSentTime2[user.id] || false;
+            //     if (botLastSent2) {
+            //         if (currentTime - botLastSent2 < timeBetweenEachCmd2) {
+            //             return;
+            //         }
+            //     } 
+            //     let userLastSent2 = lastCmdSentTime2[user.id] || false;
 
-                // console.log(userLastSent2);
-                // console.log(messageReaction.message.createdTimestamp);
-                // console.log(userLastSent2);
-                // console.log(messageReaction.message.createdTimestamp - waitTimeForUser2);
-                // console.log(waitTimeForUser2);
+            //     // console.log(userLastSent2);
+            //     // console.log(messageReaction.message.createdTimestamp);
+            //     // console.log(userLastSent2);
+            //     // console.log(messageReaction.message.createdTimestamp - waitTimeForUser2);
+            //     // console.log(waitTimeForUser2);
 
-                if (userLastSent2) {
-                    if (currentTime - userLastSent2 < waitTimeForUser2) {
-                        messageReaction.message.channel.send("You have an ongoing timer!\nThe grab timer says you will be pinged in `" + (Math.round(((waitTimeForUser2 - (currentTime - userLastSent2)) / 60000) * 100) / 100) + " minutes` <@" + user.id + ">");
-                        return;
-                    }
-                }
+            //     if (userLastSent2) {
+            //         if (currentTime - userLastSent2 < waitTimeForUser2) {
+            //             messageReaction.message.channel.send("You have an ongoing timer!\nThe grab timer says you will be pinged in `" + (Math.round(((waitTimeForUser2 - (currentTime - userLastSent2)) / 60000) * 100) / 100) + " minutes` <@" + user.id + ">");
+            //             return;
+            //         }
+            //     }
 
-                lastCmdSentTime2[user.id] = currentTime;
-                botLastSent2 = currentTime;
+            //     lastCmdSentTime2[user.id] = currentTime;
+            //     botLastSent2 = currentTime;
 
-                messageReaction.message.channel.send("You can grab again in `10 minutes` <@" + user.id + ">");
+            //     messageReaction.message.channel.send("You can grab again in `10 minutes` <@" + user.id + ">");
 
-                setTimeout(() => {
-                    messageReaction.message.channel.send("You can grab again <@" + user.id + ">");
-                }, 600000);
-            }
+            //     setTimeout(() => {
+            //         messageReaction.message.channel.send("You can grab again <@" + user.id + ">");
+            //     }, 600000);
+            // }
         }
     } catch (err) {
-        console.log("Bot cache not found");
+        //console.log("Bot cache not found");
     }
     return;
 })
@@ -754,6 +938,11 @@ client.on('ready', () => {
         .setFooter("jayBot v" + ver_no + " | host: " + host);
 
     client.channels.cache.find(channel => channel.name === "jaybot-status").send(embed);
+
+    let vcLog = client.channels.cache.find(channel => channel.name === "vc-log");
+    //(" ");
+    vcLog.send(`\nVC status tracking is \`on\`\n`);
+    //vcLog.send(" ");
 
     client.user.setPresence({
         status: 'online',
@@ -824,6 +1013,37 @@ function getCurrentDate(){
         return false;
       }
 
+function checkDrops(fetchUrl, messageLink, dropImage) {
+    fetch(fetchUrl)
+        .then(response => response.json())
+        .then((json) => {
+            //console.log(json.ParsedResults[0].ParsedText);
+            let text = json.ParsedResults[0].ParsedText.toLowerCase();
+            console.log(text);
+            for (player in wishList) {
+                //console.log("player: " + player);
+                for (word in wishList[player]) {
+                    //console.log("word: " + word);
+                    //console.log("wordArray: " + wishList[player][word]);
+                    //console.log("player.toString(): " + player.toString());
+                    if (text.includes(wishList[player][word])) {
+                        let dm = client.users.cache.find(user => user.username === player.toString());
+                        let embed = new Discord.MessageEmbed()
+                            .setTitle(`${wishList[player][word]} detected in Karuta drop! `)
+                            .setDescription("Go to drop: " + messageLink)
+                            .setColor('PURPLE')
+                            .setFooter("jayBot v" + ver_no + " | host: " + host)
+                            .setImage(dropImage);
+                        try {
+                            dm.send(embed);
+                        } catch (err) {
+                            console.log("Could not send wishList message");
+                        }
+                    }
+                }
+            }
+        });
+}
 // login to Discord with your app's token
 client.login(token);
 
